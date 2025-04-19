@@ -1,0 +1,48 @@
+use ndarray::{Array2, Axis};
+use crate::model::neural_net::NeuralNetwork;
+use crate::model::activations::{relu, relu_derivative};
+
+pub fn train(
+    model: &mut NeuralNetwork,
+    x: &Array2<f64>,
+    y: &Array2<f64>,
+    learning_rate: f64,
+    epochs: usize,
+) {
+    for epoch in 0..epochs {
+        // Forward pass
+        let hidden_input1 = x.dot(&model.weights1) + &model.bias1;
+        let hidden_output1 = relu(&hidden_input1);
+
+        let hidden_input2 = hidden_output1.dot(&model.weights2) + &model.bias2;
+        let hidden_output2 = relu(&hidden_input2);
+
+        let output_input = hidden_output2.dot(&model.weights3) + &model.bias3;
+        let output = relu(&output_input);
+
+        // Backward pass
+        let output_error = &output - y;
+        let hidden_error2 = output_error.dot(&model.weights3.t()) * relu_derivative(&hidden_output2);
+        let hidden_error1 = hidden_error2.dot(&model.weights2.t()) * relu_derivative(&hidden_output1);
+
+        // Update weights and biases
+        model.weights3 -= &(learning_rate * hidden_output2.t().dot(&output_error));
+        model.bias3 -= &(learning_rate * output_error.sum_axis(Axis(0)));
+
+        model.weights2 -= &(learning_rate * hidden_output1.t().dot(&hidden_error2));
+        model.bias2 -= &(learning_rate * hidden_error2.sum_axis(Axis(0)));
+
+        model.weights1 -= &(learning_rate * x.t().dot(&hidden_error1));
+        model.bias1 -= &(learning_rate * hidden_error1.sum_axis(Axis(0)));
+
+        if epoch % 100 == 0 {
+            let loss = cross_entropy_loss(&output, y);
+            println!("Epoch: {}, Loss: {}", epoch, loss);
+        }
+    }
+}
+
+pub fn cross_entropy_loss(y_pred: &Array2<f64>, y_true: &Array2<f64>) -> f64 {
+    let epsilon = 1e-15;
+    -(y_true * y_pred.mapv(|v| (v + epsilon).ln())).sum()/y_pred.shape()[0] as f64
+}

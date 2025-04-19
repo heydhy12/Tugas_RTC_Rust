@@ -1,0 +1,36 @@
+use industry_maintenance_nn::{
+    data::{dataset::Dataset, preprocessing},
+    model::neural_net::NeuralNetwork,
+    training::trainer,
+    utils::metrics,
+};
+use std::error::Error;
+
+fn main() -> Result<(), Box<dyn Error>> {
+    // Load and prepare data
+    let mut dataset = Dataset::from_csv("csv/industry_maintenance.csv")?;
+    preprocessing::normalize_zscore(&mut dataset.features);
+
+    // Initialize model
+    let mut nn = NeuralNetwork::new(4, 5, 3, 4);
+
+    // Learning Rate
+    let learning_rate = 0.001;
+    let epochs = 1000;
+
+    // Train
+    trainer::train(
+        &mut nn,
+        &dataset.features,
+        &dataset.labels,
+        learning_rate,  
+        epochs,
+    );
+
+    // Evaluate
+    let predictions = nn.forward(&dataset.features);
+    let acc = metrics::accuracy(&predictions, &dataset.labels);
+    println!("Final Accuracy: {:.2}%", acc * 100.0);
+
+    Ok(())
+}
